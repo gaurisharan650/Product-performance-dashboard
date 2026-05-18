@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Product Performance & User Journey Dashboard</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #0a0c10;
+      --surface: #111318;
+      --surface2: #181c23;
+      --border: #222733;
+      --accent: #00e5a0;
+      --accent2: #ff6b6b;
+      --accent3: #ffc94a;
+      --accent4: #4a9eff;
+      --text: #e8eaf0;
+      --muted: #6b7280;
+      --card-glow: rgba(0,229,160,0.06);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,229,160,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,229,160,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    header {
+      padding: 40px 0 32px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 48px;
+      animation: fadeDown 0.6s ease both;
+    }
+
+    .header-inner {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(0,229,160,0.1);
+      border: 1px solid rgba(0,229,160,0.3);
+      color: var(--accent);
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      padding: 4px 10px;
+      border-radius: 2px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .badge::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: pulse 2s infinite;
+    }
+
+    h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(28px, 4vw, 48px);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      color: #fff;
+    }
+
+    h1 span { color: var(--accent); }
+
+    .header-meta {
+      text-align: right;
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.8;
+    }
+
+    .header-meta strong {
+      color: var(--text);
+      display: block;
+      font-size: 13px;
+    }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 48px;
+      animation: fadeUp 0.6s 0.1s ease both;
+    }
+
+    .kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.3s, transform 0.3s;
+    }
+
+    .kpi-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(0,229,160,0.08);
+    }
+
+    .kpi-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--kpi-color, var(--accent));
+    }
+
+    .kpi-label {
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .kpi-value {
+      font-family: 'Syne', sans-serif;
+      font-size: 36px;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1;
+    }
+
+    .kpi-sub {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    .kpi-icon {
+      position: absolute;
+      top: 20px; right: 20px;
+      font-size: 24px;
+      opacity: 0.15;
+    }
+
+    .section-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 48px;
+      animation: fadeUp 0.6s 0.2s ease both;
+    }
+
+    @media (max-width: 768px) {
+      .charts-grid { grid-template-columns: 1fr; }
+    }
+
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 28px;
+      position: relative;
+    }
+
+    .chart-card.wide {
+      grid-column: 1 / -1;
+    }
+
+    .chart-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+
+    .chart-desc {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 24px;
+    }
+
+    .chart-wrap {
+      position: relative;
+      height: 260px;
+    }
+
+    .chart-wrap.tall { height: 320px; }
+
+    .funnel-section {
+      margin-bottom: 48px;
+      animation: fadeUp 0.6s 0.3s ease both;
+    }
+
+    .funnel-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 36px;
+    }
+
+    .funnel-stages {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .funnel-stage {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 18px 0;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.2s;
+    }
+
+    .funnel-stage:last-child { border-bottom: none; }
+
+    .funnel-stage:hover .funnel-bar-fill { filter: brightness(1.2); }
+
+    .stage-info {
+      width: 130px;
+      flex-shrink: 0;
+    }
+
+    .stage-name {
+      font-family: 'Syne', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 2px;
+    }
+
+    .stage-count {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .funnel-bar-wrap {
+      flex: 1;
+      height: 32px;
+      background: var(--surface2);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .funnel-bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 1.5s cubic-bezier(0.16,1,0.3,1);
+      display: flex;
+      align-items: center;
+      padding-left: 10px;
+    }
+
+    .funnel-bar-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: rgba(0,0,0,0.8);
+    }
+
+    .funnel-pct {
+      width: 80px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .pct-value {
+      font-family: 'Syne', sans-serif;
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .pct-drop {
+      font-size: 10px;
+      color: var(--accent2);
+      margin-top: 1px;
+    }
+
+    .pct-drop.none { color: var(--muted); }
+
+    .products-section {
+      margin-bottom: 48px;
+      animation: fadeUp 0.6s 0.4s ease both;
+    }
+
+    .products-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .products-header {
+      padding: 28px 32px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead tr { background: var(--surface2); }
+
+    th {
+      padding: 12px 20px;
+      font-size: 9px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-align: left;
+      font-weight: 500;
+    }
+
+    td {
+      padding: 14px 20px;
+      font-size: 13px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    tbody tr { transition: background 0.2s; }
+    tbody tr:hover { background: var(--surface2); }
+
+    .rank {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .rank.top { color: var(--accent); }
+
+    .product-name {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .bar-mini {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .bar-mini-track {
+      flex: 1;
+      height: 6px;
+      background: var(--surface2);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .bar-mini-fill {
+      height: 100%;
+      border-radius: 99px;
+      background: var(--accent);
+      transition: width 1.2s cubic-bezier(0.16,1,0.3,1);
+    }
+
+    .bar-mini-val {
+      font-size: 13px;
+      color: var(--text);
+      width: 30px;
+      text-align: right;
+    }
+
+    .insights-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin-bottom: 48px;
+      animation: fadeUp 0.6s 0.5s ease both;
+    }
+
+    .insight-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--insight-color, var(--accent));
+      border-radius: 4px;
+      padding: 24px;
+    }
+
+    .insight-tag {
+      font-size: 9px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--insight-color, var(--accent));
+      margin-bottom: 8px;
+    }
+
+    .insight-text {
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    .insight-text strong {
+      color: #fff;
+      font-family: 'Syne', sans-serif;
+    }
+
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 28px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      font-size: 11px;
+      color: var(--muted);
+      animation: fadeUp 0.6s 0.6s ease both;
+    }
+
+    footer strong { color: var(--text); }
+
+    @keyframes fadeDown {
+      from { opacity: 0; transform: translateY(-16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <header>
+    <div class="header-inner">
+      <div>
+        <div class="badge">Live Dashboard</div>
+        <h1>Product Performance<br/>&amp; <span>User Journey</span> Analysis</h1>
+      </div>
+      <div class="header-meta">
+        <strong>Gauri Sharan</strong>
+        Period: January 2024<br/>
+        Dataset: user_funnel_data_2.xlsx<br/>
+        Records: 674 events · 200 users
+      </div>
+    </div>
+  </header>
+
+  <div class="kpi-grid">
+    <div class="kpi-card" style="--kpi-color: var(--accent);">
+      <div class="kpi-icon">👥</div>
+      <div class="kpi-label">Total Users</div>
+      <div class="kpi-value">200</div>
+      <div class="kpi-sub">Unique visitors tracked</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color: var(--accent4);">
+      <div class="kpi-icon">📊</div>
+      <div class="kpi-label">Total Events</div>
+      <div class="kpi-value">674</div>
+      <div class="kpi-sub">Across 5 funnel stages</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color: var(--accent3);">
+      <div class="kpi-icon">🛍️</div>
+      <div class="kpi-label">Products Tracked</div>
+      <div class="kpi-value">10</div>
+      <div class="kpi-sub">P1 through P10</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color: var(--accent2);">
+      <div class="kpi-icon">🎯</div>
+      <div class="kpi-label">Overall Conversion</div>
+      <div class="kpi-value">38.5<span style="font-size:20px">%</span></div>
+      <div class="kpi-sub">Visit → Purchase</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color: var(--accent2);">
+      <div class="kpi-icon">⚠️</div>
+      <div class="kpi-label">Max Drop-off</div>
+      <div class="kpi-value">25.4<span style="font-size:20px">%</span></div>
+      <div class="kpi-sub">Cart → Checkout stage</div>
+    </div>
+  </div>
+
+  <div class="funnel-section">
+    <div class="section-title">Conversion Funnel · 5 Stages</div>
+    <div class="funnel-card">
+      <div class="funnel-stages">
+
+        <div class="funnel-stage">
+          <div class="stage-info">
+            <div class="stage-name">01 · Visit</div>
+            <div class="stage-count">Top of funnel</div>
+          </div>
+          <div class="funnel-bar-wrap">
+            <div class="funnel-bar-fill" data-w="100" style="width:0%;background:linear-gradient(90deg,#00e5a0,#00b37a);">
+              <span class="funnel-bar-label">200 users</span>
+            </div>
+          </div>
+          <div class="funnel-pct">
+            <div class="pct-value">200</div>
+            <div class="pct-drop none">baseline</div>
+          </div>
+        </div>
+
+        <div class="funnel-stage">
+          <div class="stage-info">
+            <div class="stage-name">02 · Signup</div>
+            <div class="stage-count">Account creation</div>
+          </div>
+          <div class="funnel-bar-wrap">
+            <div class="funnel-bar-fill" data-w="81.5" style="width:0%;background:linear-gradient(90deg,#4a9eff,#2979d4);">
+              <span class="funnel-bar-label">163 users</span>
+            </div>
+          </div>
+          <div class="funnel-pct">
+            <div class="pct-value">163</div>
+            <div class="pct-drop">↓ 18.5%</div>
+          </div>
+        </div>
+
+        <div class="funnel-stage">
+          <div class="stage-info">
+            <div class="stage-name">03 · Add to Cart</div>
+            <div class="stage-count">Product interest</div>
+          </div>
+          <div class="funnel-bar-wrap">
+            <div class="funnel-bar-fill" data-w="67" style="width:0%;background:linear-gradient(90deg,#ffc94a,#d4a020);">
+              <span class="funnel-bar-label">134 users</span>
+            </div>
+          </div>
+          <div class="funnel-pct">
+            <div class="pct-value">134</div>
+            <div class="pct-drop">↓ 17.8%</div>
+          </div>
+        </div>
+
+        <div class="funnel-stage">
+          <div class="stage-info">
+            <div class="stage-name">04 · Checkout</div>
+            <div class="stage-count">⚠️ Critical drop</div>
+          </div>
+          <div class="funnel-bar-wrap">
+            <div class="funnel-bar-fill" data-w="50" style="width:0%;background:linear-gradient(90deg,#ff6b6b,#d44444);">
+              <span class="funnel-bar-label">100 users</span>
+            </div>
+          </div>
+          <div class="funnel-pct">
+            <div class="pct-value">100</div>
+            <div class="pct-drop">↓ 25.4%</div>
+          </div>
+        </div>
+
+        <div class="funnel-stage">
+          <div class="stage-info">
+            <div class="stage-name">05 · Purchase</div>
+            <div class="stage-count">Completed order</div>
+          </div>
+          <div class="funnel-bar-wrap">
+            <div class="funnel-bar-fill" data-w="38.5" style="width:0%;background:linear-gradient(90deg,#a855f7,#7c3aed);">
+              <span class="funnel-bar-label">77 users</span>
+            </div>
+          </div>
+          <div class="funnel-pct">
+            <div class="pct-value">77</div>
+            <div class="pct-drop">↓ 23.0%</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="chart-card">
+      <div class="chart-title">Funnel Drop-off Rate</div>
+      <div class="chart-desc">% of users lost at each transition stage</div>
+      <div class="chart-wrap">
+        <canvas id="dropoffChart"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Top Products by Interactions</div>
+      <div class="chart-desc">User engagement volume per product (all stages)</div>
+      <div class="chart-wrap">
+        <canvas id="productChart"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-card wide">
+      <div class="chart-title">User Flow Across All 5 Funnel Stages</div>
+      <div class="chart-desc">Absolute user count at each stage — visualizing where the journey ends</div>
+      <div class="chart-wrap tall">
+        <canvas id="funnelLineChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="products-section">
+    <div class="section-title">Product Performance Breakdown</div>
+    <div class="products-card">
+      <div class="products-header">
+        <div class="chart-title">All Products · Interaction Volume</div>
+        <div class="chart-desc">Ranked by total user interactions across all funnel stages</div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Product</th>
+            <th>Interactions</th>
+            <th style="width:40%">Volume</th>
+          </tr>
+        </thead>
+        <tbody id="productTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section-title">Key Insights</div>
+  <div class="insights-grid">
+    <div class="insight-card" style="--insight-color: var(--accent2);">
+      <div class="insight-tag">⚠️ Critical Finding</div>
+      <div class="insight-text">
+        The <strong>Cart → Checkout transition</strong> shows the highest drop-off at <strong>25.4%</strong> — 34 users abandon at this stage. This is the primary area for optimization.
+      </div>
+    </div>
+    <div class="insight-card" style="--insight-color: var(--accent4);">
+      <div class="insight-tag">📉 Funnel Insight</div>
+      <div class="insight-text">
+        Only <strong>38.5% of visitors</strong> complete a purchase (77 of 200). Improving the checkout experience could significantly lift overall revenue.
+      </div>
+    </div>
+    <div class="insight-card" style="--insight-color: var(--accent3);">
+      <div class="insight-tag">🏆 Top Performer</div>
+      <div class="insight-text">
+        <strong>Product P1</strong> leads with 83 interactions, followed by P2 (72) and P4 & P7 tied at 69 — the top 3 products account for a disproportionate share of engagement.
+      </div>
+    </div>
+    <div class="insight-card" style="--insight-color: var(--accent);">
+      <div class="insight-tag">✅ Strength</div>
+      <div class="insight-text">
+        The <strong>Visit → Signup stage</strong> retains 81.5% of users (163/200), suggesting strong landing page and onboarding effectiveness.
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div>
+      <strong>Product Performance & User Journey Analysis Dashboard</strong><br/>
+      Gauri Sharan · January 2024 · 674 events · 200 users · 10 products
+    </div>
+    <div style="text-align:right;">
+      Built with Chart.js · SQL · Power BI<br/>
+      GitHub: gaurisharan650/Product-performance-dashboard
+    </div>
+  </footer>
+
+</div>
+
+<script>
+  const products = [
+    { name: 'P1', val: 83 },
+    { name: 'P2', val: 72 },
+    { name: 'P4', val: 69 },
+    { name: 'P7', val: 69 },
+    { name: 'P6', val: 68 },
+    { name: 'P3', val: 65 },
+    { name: 'P5', val: 62 },
+    { name: 'P8', val: 60 },
+    { name: 'P9', val: 58 },
+    { name: 'P10', val: 55 },
+  ];
+
+  const stages = ['Visit','Signup','Add to Cart','Checkout','Purchase'];
+  const users  = [200, 163, 134, 100, 77];
+  const drops  = [0, 18.5, 17.8, 25.4, 23.0];
+  const syne   = "'Syne', sans-serif";
+
+  Chart.defaults.color = '#6b7280';
+  Chart.defaults.font.family = "'DM Mono', monospace";
+
+  new Chart(document.getElementById('dropoffChart'), {
+    type: 'bar',
+    data: {
+      labels: ['Visit→Signup','Signup→Cart','Cart→Checkout','Checkout→Purchase'],
+      datasets: [{
+        label: 'Drop-off %',
+        data: [18.5, 17.8, 25.4, 23.0],
+        backgroundColor: ['rgba(74,158,255,0.7)','rgba(255,201,74,0.7)','rgba(255,107,107,0.9)','rgba(168,85,247,0.7)'],
+        borderColor: ['#4a9eff','#ffc94a','#ff6b6b','#a855f7'],
+        borderWidth: 1,
+        borderRadius: 2,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.raw}% drop-off` } }
+      },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { font: { size: 10 } } },
+        y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { callback: v => v + '%' }, max: 30 }
+      }
+    }
+  });
+
+  new Chart(document.getElementById('productChart'), {
+    type: 'bar',
+    data: {
+      labels: products.map(p => p.name),
+      datasets: [{
+        label: 'Interactions',
+        data: products.map(p => p.val),
+        backgroundColor: products.map((_, i) =>
+          i === 0 ? 'rgba(0,229,160,0.85)' : i === 1 ? 'rgba(0,229,160,0.65)' : 'rgba(0,229,160,0.35)'
+        ),
+        borderColor: 'rgba(0,229,160,0.5)',
+        borderWidth: 1,
+        borderRadius: 2,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.raw} interactions` } }
+      },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.04)' }, min: 40, max: 90 },
+        y: { grid: { display: false }, ticks: { font: { size: 11, family: syne, weight: 'bold' }, color: '#fff' } }
+      }
+    }
+  });
+
+  new Chart(document.getElementById('funnelLineChart'), {
+    type: 'line',
+    data: {
+      labels: stages,
+      datasets: [{
+        label: 'Users',
+        data: users,
+        borderColor: '#00e5a0',
+        backgroundColor: 'rgba(0,229,160,0.08)',
+        borderWidth: 2.5,
+        pointBackgroundColor: '#00e5a0',
+        pointBorderColor: '#0a0c10',
+        pointBorderWidth: 2,
+        pointRadius: 6,
+        pointHoverRadius: 8,
+        fill: true,
+        tension: 0.35
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${ctx.raw} users at this stage`,
+            afterLabel: ctx => drops[ctx.dataIndex] ? ` ↓ ${drops[ctx.dataIndex]}% drop from previous` : ' (baseline)'
+          }
+        }
+      },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: { grid: { color: 'rgba(255,255,255,0.04)' }, min: 50, max: 220, ticks: { callback: v => v + ' users' } }
+      }
+    }
+  });
+
+  // Product table
+  const max = products[0].val;
+  const tbody = document.getElementById('productTable');
+  products.forEach((p, i) => {
+    const pct = Math.round((p.val / max) * 100);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span class="rank ${i < 3 ? 'top' : ''}">#${String(i+1).padStart(2,'0')}</span></td>
+      <td><span class="product-name">${p.name}</span></td>
+      <td style="color:#fff;font-family:'Syne',sans-serif;font-weight:700">${p.val}</td>
+      <td>
+        <div class="bar-mini">
+          <div class="bar-mini-track">
+            <div class="bar-mini-fill" data-pct="${pct}" style="width:0%"></div>
+          </div>
+          <span class="bar-mini-val">${pct}%</span>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // Animate bars
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      document.querySelectorAll('.funnel-bar-fill').forEach(el => { el.style.width = el.dataset.w + '%'; });
+      document.querySelectorAll('.bar-mini-fill').forEach(el => { el.style.width = el.dataset.pct + '%'; });
+    }, 300);
+  });
+</script>
+</body>
+</html>
